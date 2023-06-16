@@ -138,10 +138,10 @@ static Lnn_CodeBlock* parse_codeblock(Lnn_State* state,
 		Lnn_Token* nexttoken = NULL;
 		stmt = parse_statement(state, i, &nexttoken);
 
-		if (!stmt || i == nexttoken)
+		if (!stmt)
 		{
 			printf("ERROR! Parsed invalid statement\n");
-			i = (Lnn_Token*)i->links.next;
+			*end = nexttoken;
 			break;
 		} else
 			Utl_PushBackList(&block->statements, stmt);
