@@ -46,7 +46,7 @@ void Lnn_DestroyToken(Lnn_Token* token);
  * @param sourcecode Pointer to a string with Lnn source code.
  * @return The number of errors found.
  */
-int Lnn_ParseSourcecodeTokens(Lnn_State* state,
+int Lnn_ParseSourceCodeTokens(Lnn_State* state,
 							  Utl_List* tokens,
 							  const char* sourcecode);
 

@@ -163,6 +163,9 @@
     <ClInclude Include="lnn_state.h" />
     <ClInclude Include="fab_utility.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="testcode.lnn" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -4,13 +4,13 @@
 
 static Lnn_CodeBlock* parse_codeblock(Lnn_State* state,
 									  const Lnn_Token* begin,
-									  Lnn_Token** end);
+									  const Lnn_Token** end);
 
 
 
 static Lnn_ExprNode* parse_expression(Lnn_State* state,
 									  const Lnn_Token* begin,
-									  Lnn_Token** end,
+									  const Lnn_Token** end,
 									  const Utl_Bool readendline)
 {
 	Utl_Assert(state);
@@ -18,7 +18,7 @@ static Lnn_ExprNode* parse_expression(Lnn_State* state,
 	Utl_Assert(end);
 
 	Lnn_ExprNode* node = Utl_AllocType(Lnn_ExprNode);
-	*end = begin->links.next->next->next;
+	*end = begin->links.next;
 	return node;
 }
 
@@ -26,7 +26,7 @@ static Lnn_ExprNode* parse_expression(Lnn_State* state,
 
 static Lnn_Statement* parse_if_statement(Lnn_State* state,
 										 const Lnn_Token* begin,
-										 Lnn_Token** end)
+										 const Lnn_Token** end)
 {
 	Utl_Assert(state);
 	Utl_Assert(begin);
@@ -36,7 +36,7 @@ static Lnn_Statement* parse_if_statement(Lnn_State* state,
 	Lnn_CodeBlock* block_ontrue = NULL;
 	Lnn_CodeBlock* block_onfalse = NULL;
 
-	Lnn_Token* i = (Lnn_Token*)begin->links.next;
+	const Lnn_Token* i = (const Lnn_Token*)begin->links.next;
 	if (!i)
 	{
 		printf("ERROR! If statement doesn't have an end\n"); return NULL;
@@ -62,10 +62,12 @@ static Lnn_Statement* parse_if_statement(Lnn_State* state,
 	if (i->keywordid == Lnn_KW_ELSE) /* If there is an else statement */
 	{
 		/* Parse the on false block */
-		Lnn_CodeBlock* block = parse_codeblock(state, i, &i);
-		if (!block)
+		i = (Lnn_Token*)i->links.next;
+		block_onfalse = parse_codeblock(state, i, &i);
+		if (!block_onfalse) goto on_fail;
+		if (i == NULL || i->keywordid != Lnn_KW_END)
 		{
-			goto on_fail;
+			printf("ERROR! If statement doesn't have an end\n"); goto on_fail;
 		}
 	}
 
@@ -74,7 +76,7 @@ static Lnn_Statement* parse_if_statement(Lnn_State* state,
 	stmt->u.stmt_if.block_ontrue = block_ontrue;
 	stmt->u.stmt_if.block_onfalse = block_onfalse;
 	stmt->u.stmt_if.condition = condition;
-
+	*end = (const Lnn_Token*)i->links.next;
 	return stmt;
 
 on_fail:
@@ -98,7 +100,7 @@ on_fail:
  */
 static Lnn_Statement* parse_statement(Lnn_State* state,
 									  const Lnn_Token* begin,
-									  Lnn_Token** end)
+									  const Lnn_Token** end)
 {
 	Utl_Assert(state);
 	Utl_Assert(begin);
@@ -107,9 +109,17 @@ static Lnn_Statement* parse_statement(Lnn_State* state,
 	switch (begin->keywordid)
 	{
 	case Lnn_KW_IF: return parse_if_statement(state, begin, end);
-	case Lnn_KW_END: *end = begin; return NULL;
-	default:
+		
+
+	case Lnn_KW_END:
+	case Lnn_KW_ELSE:
+		*end = begin; /* Statements can't start with these keywords */
 		return NULL;
+
+	default:
+		/* Statement doesn't start with a keyword */
+
+		break;
 	}
 }
 
@@ -124,32 +134,27 @@ static Lnn_Statement* parse_statement(Lnn_State* state,
  */
 static Lnn_CodeBlock* parse_codeblock(Lnn_State* state,
 									  const Lnn_Token* begin,
-									  Lnn_Token** end)
+									  const Lnn_Token** end)
 {
 	Utl_Assert(state);
 	Utl_Assert(begin);
 	Utl_Assert(end);
 
 	Lnn_CodeBlock* block = Utl_AllocType(Lnn_CodeBlock);
-	Lnn_Token* i;
-	for (i = begin; i;)
+	for (const Lnn_Token* i = begin; i;)
 	{
-		Lnn_Statement* stmt = NULL;
 		Lnn_Token* nexttoken = NULL;
-		stmt = parse_statement(state, i, &nexttoken);
-
+		Lnn_Statement* stmt = parse_statement(state, i, &nexttoken);
 		if (!stmt)
 		{
-			printf("ERROR! Parsed invalid statement\n");
 			*end = nexttoken;
-			break;
-		} else
-			Utl_PushBackList(&block->statements, stmt);
-
+			return block;
+		}
+		Utl_PushBackList(&block->statements, stmt);
 		i = nexttoken;
 	}
-
-	*end = i;
+	/* Reached end of file */
+	*end = NULL;
 	return block;
 }
 
@@ -160,7 +165,7 @@ Lnn_CodeBlock* Lnn_ParseSourceCode(Lnn_State* state, const char* sourcecode)
 	Utl_Assert(state && sourcecode);
 	
 	Utl_List tokens = { 0 };
-	Lnn_ParseSourcecodeTokens(state, &tokens, sourcecode);
+	Lnn_ParseSourceCodeTokens(state, &tokens, sourcecode);
 
 	printf("Tokens:\n");
 	for (Lnn_Token* i = (Lnn_Token*)tokens.begin; i; i = (Lnn_Token*)i->links.next)
@@ -182,12 +187,17 @@ Lnn_CodeBlock* Lnn_ParseSourceCode(Lnn_State* state, const char* sourcecode)
 		printf("ERROR! Coudln't parse top level codeblock!\n");
 		goto on_fail;
 	}
+	
 	if (endtoken != NULL)
 	{
 		//Lnn_PUSHTOKENERROR(endtoken, "Sourcecode parsing ended early");
+		printf("ERROR! Invalid source code end on line %i with token ", endtoken->linenum);
+		Lnn_PrintToken(endtoken);
+		putchar('\n');
 		Lnn_DestroyCodeBlock(block);
 		block = NULL;
-	}
+	} else
+		Lnn_PrintCodeTree(block);
 
 	Utl_ClearList(&tokens, &Lnn_DestroyToken);
 

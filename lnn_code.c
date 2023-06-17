@@ -1,4 +1,5 @@
 #include "lnn_code.h"
+#include "lnn_parse.h"
 
 const char* lnn_keyword_strings[Lnn_NUM_KEYWORDS] =
 {
@@ -183,6 +184,94 @@ void Lnn_DestroyCodeBlock(Lnn_CodeBlock* block)
 {
 }
 
+const char* lnn_statementtype_names[Lnn_NUM_STATEMENTTYPES] =
+{
+	"ST_EXPRESSION",
+	"ST_IF",
+	"ST_FOR",
+	"ST_WHILE",
+	"ST_DOWHILE",
+	"ST_RETURN",
+	"ST_SCOPE"
+};
+
 void Lnn_DestroyStatement(Lnn_Statement* stmt)
 {
+}
+
+
+
+
+
+static void print_indent(const int indent)
+{
+	for (int i = 0; i < indent; i++)
+		printf("  ");
+}
+#define indented_printf print_indent(indent); printf
+
+static void print_code_block(const Lnn_CodeBlock* block, const int indent);
+
+static void print_expression(const Lnn_ExprNode* expr, const int indent)
+{
+	indented_printf("Expr node lol {}\n");
+}
+
+static void print_if_statement(const Lnn_Statement* stmt, const int indent)
+{
+	indented_printf("Condition {\n");
+	print_expression(stmt->u.stmt_if.condition, indent + 1);
+	indented_printf("}\n");
+	indented_printf("Code block on true {\n");
+	print_code_block(stmt->u.stmt_if.block_ontrue, indent + 1);
+	indented_printf("}\n");
+	indented_printf("Code block on false {\n");
+	print_code_block(stmt->u.stmt_if.block_onfalse, indent + 1);
+	indented_printf("}\n");
+}
+
+static void print_statement(const Lnn_Statement* stmt, const int indent)
+{
+	if (!stmt)
+		{ indented_printf("Statement is null\n"); return; }
+	if (stmt->type < 0 || stmt->type >= Lnn_NUM_STATEMENTTYPES)
+		{ indented_printf("Statement type %i is invalid\n", stmt->type); return; }
+	
+	indented_printf("%s {\n", lnn_statementtype_names[stmt->type]);
+	switch (stmt->type)
+	{
+	case Lnn_ST_IF: print_if_statement(stmt, indent + 1); break;
+	default:
+		break;
+	}
+	indented_printf("}\n");
+}
+
+static void print_code_block(const Lnn_CodeBlock* block, const int indent)
+{
+	if (!block)
+		{ indented_printf("null\n"); return; }
+	if (block->statements.count == 0)
+		{ indented_printf("empty\n"); return; }
+	if (block->statements.count < 0 || block->statements.count > 500)
+		{ indented_printf("Block has invalid number of statements at %i\n", block->statements.count); return; }
+	Lnn_Statement* stmt_iter = block->statements.begin;
+	for (int i = 0; i < block->statements.count; i++)
+	{
+		print_statement(stmt_iter, indent);
+	}
+}
+
+void Lnn_PrintCodeTree(const Lnn_CodeBlock* block)
+{
+	printf("Printing code tree\n");
+	if (!block)
+	{
+		printf("Block is null\n");
+		return;
+	}
+
+	printf("{\n");
+	print_code_block(block, 1);
+	printf("}\n");
 }

@@ -242,4 +242,8 @@ typedef struct Lnn_Statement
  */
 void Lnn_DestroyStatement(Lnn_Statement* stmt);
 
+
+
+void Lnn_PrintCodeTree(const Lnn_CodeBlock* block);
+
 #endif

@@ -119,7 +119,7 @@ static int read_alpha_token(Utl_List* tokens,
 		Utl_Free(cutstring);
 	}
 	token->linenum = (unsigned short)linenum;
-	Utl_PushBackList(tokens, token);
+	Utl_PushBackList(tokens, (Utl_ListLinks*)token);
 	return end;
 }
 
@@ -159,7 +159,7 @@ static int read_number_token(Lnn_State* state,
 	token->string = Utl_CopyCutString(sourcecode, start, end - start);
 	token->type = Lnn_TT_NUMBERLITERAL;
 	token->linenum = (unsigned short)linenum;
-	Utl_PushBackList(tokens, token);
+	Utl_PushBackList(tokens, (Utl_ListLinks*)token);
 	return end;
 }
 
@@ -193,8 +193,8 @@ static int read_operator_token(Lnn_State* state,
 	Lnn_Token* token = create_token();
 	token->operatorid = op;
 	token->type = Lnn_TT_OPERATOR;
-	token->linenum = linenum;
-	Utl_PushBackList(tokens, token);
+	token->linenum = (unsigned short)linenum;
+	Utl_PushBackList(tokens, (Utl_ListLinks*)token);
 	return end;
 }
 
@@ -215,8 +215,8 @@ static int read_separator_token(Lnn_State* state,
 	Lnn_Token* token = create_token();
 	token->separatorid = sp;
 	token->type = Lnn_TT_SEPARATOR;
-	token->linenum = linenum;
-	Utl_PushBackList(tokens, token);
+	token->linenum = (unsigned short)linenum;
+	Utl_PushBackList(tokens, (Utl_ListLinks*)token);
 	return start + 1;
 }
 
@@ -245,8 +245,8 @@ static int read_string_token(Lnn_State* state,
 	Lnn_Token* token = create_token();
 	token->string = Utl_CopyCutString(sourcecode, start + 1, end - start - 2);
 	token->type = Lnn_TT_STRINGLITERAL;
-	token->linenum = linenum;
-	Utl_PushBackList(tokens, token);
+	token->linenum = (unsigned short)linenum;
+	Utl_PushBackList(tokens, (Utl_ListLinks*)token);
 	return end;
 }
 
@@ -269,7 +269,7 @@ static int read_comment(const char* sourcecode,
 
 
 
-int Lnn_ParseSourcecodeTokens(Lnn_State* state,
+int Lnn_ParseSourceCodeTokens(Lnn_State* state,
 							  Utl_List* tokens,
 							  const char* sourcecode)
 {
@@ -313,6 +313,7 @@ int Lnn_ParseSourcecodeTokens(Lnn_State* state,
 			i++;
 			continue;
 
+		case CT_NULL:
 		default: /* Invalid character */
 		{
 			//Lnn_PUSHSYNTAXERROR("Invalid character '%c'", c);
