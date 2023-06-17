@@ -2,11 +2,65 @@
 
 
 
+static Lnn_ExprNode* parse_expression(Lnn_State* state,
+									  const Lnn_Token* begin,
+									  const Lnn_Token** end,
+									  const Utl_Bool readendline);
+
 static Lnn_CodeBlock* parse_codeblock(Lnn_State* state,
 									  const Lnn_Token* begin,
 									  const Lnn_Token** end);
 
 
+
+
+
+static Lnn_ExprNode* parse_expression_separator(Lnn_State* state,
+												const Lnn_Token* begin,
+												const Lnn_Token** end)
+{
+	Utl_Assert(state);
+	Utl_Assert(begin);
+	Utl_Assert(end);
+	Utl_Assert(begin->type == Lnn_TT_SEPARATOR);
+
+	Lnn_ExprNode* node = NULL;
+	Lnn_Token* endtoken = NULL;
+
+	if (begin->separatorid == Lnn_SP_LPAREN)
+	{
+		node = parse_expression(state, begin, &endtoken, Lnn_KW_FALSE);
+		if (endtoken || endtoken->separatorid != Lnn_SP_RPAREN)
+			{ printf("ERROR! Missing ')'\n"); goto on_fail; }
+	} else if (begin->separatorid == Lnn_SP_LBRACKET)
+	{
+		node = parse_expression(state, begin, &endtoken, Lnn_KW_FALSE);
+		if (endtoken || endtoken->separatorid != Lnn_SP_RBRACKET)
+			{ printf("ERROR! Missing ']'\n"); goto on_fail; }
+	} else if (begin->separatorid == Lnn_SP_LBRACE)
+	{
+		node = parse_expression(state, begin, &endtoken, Lnn_KW_FALSE);
+		if (endtoken || endtoken->separatorid != Lnn_SP_RBRACE)
+			{ printf("ERROR! Missing ']'\n"); goto on_fail; }
+	} else
+	{
+		/* Invalid separator to start an expression */
+		printf("ERROR! Expression can't start with %s\n", lnn_separatorid_names[begin->separatorid]);
+		goto on_fail;
+	}
+	*end = endtoken;
+	return node;
+
+on_fail:
+	*end = endtoken ? endtoken : begin->links.next;
+	return NULL;
+}
+
+typedef struct
+{
+	Utl_ListLinks links;
+	const Lnn_Token* token;
+} listtoken;
 
 static Lnn_ExprNode* parse_expression(Lnn_State* state,
 									  const Lnn_Token* begin,
@@ -17,9 +71,30 @@ static Lnn_ExprNode* parse_expression(Lnn_State* state,
 	Utl_Assert(begin);
 	Utl_Assert(end);
 
+	Utl_List tokens_postfix = { 0 };
+
+	const Lnn_Token* i = begin;
+	while (i)
+	{
+		i = i->links.next;
+	}
+
 	Lnn_ExprNode* node = Utl_AllocType(Lnn_ExprNode);
 	*end = begin->links.next;
 	return node;
+}
+
+
+
+static Lnn_Statement* parse_expression_statement(Lnn_State* state,
+												 const Lnn_Token* begin,
+												 const Lnn_Token** end)
+{
+	Utl_Assert(state);
+	Utl_Assert(begin);
+	Utl_Assert(end);
+
+	return parse_expression(state, begin, end, Utl_TRUE);
 }
 
 
@@ -38,26 +113,19 @@ static Lnn_Statement* parse_if_statement(Lnn_State* state,
 
 	const Lnn_Token* i = (const Lnn_Token*)begin->links.next;
 	if (!i)
-	{
-		printf("ERROR! If statement doesn't have an end\n"); return NULL;
-	}
+		{ printf("ERROR! If statement doesn't have an end\n"); return NULL; }
 	condition = parse_expression(state, i, &i, Utl_FALSE);
+
 	if (!condition)
-	{
-		printf("ERROR! Couldn't parse if statement condition\n"); return NULL;
-	}
+		{ printf("ERROR! Couldn't parse if statement condition\n"); return NULL; }
 	if (i == NULL || i->keywordid != Lnn_KW_THEN)
-	{
-		printf("ERROR! If statement is missing the 'then' keyword\n"); goto on_fail;
-	}
+		{ printf("ERROR! If statement is missing the 'then' keyword\n"); goto on_fail; }
 
 	i = (Lnn_Token*)i->links.next;
 	block_ontrue = parse_codeblock(state, i, &i);
 	if (!block_ontrue) goto on_fail;
 	if (i == NULL || !(i->keywordid == Lnn_KW_ELSE || i->keywordid == Lnn_KW_END))
-	{
-		printf("ERROR! If statement doesn't have any code block\n"); goto on_fail;
-	}
+		{ printf("ERROR! If statement doesn't have any code block\n"); goto on_fail; }
 
 	if (i->keywordid == Lnn_KW_ELSE) /* If there is an else statement */
 	{
@@ -118,7 +186,7 @@ static Lnn_Statement* parse_statement(Lnn_State* state,
 
 	default:
 		/* Statement doesn't start with a keyword */
-
+		return parse_expression_statement(state, begin, end);
 		break;
 	}
 }
