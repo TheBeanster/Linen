@@ -1,0 +1,22 @@
+a = 1 + 2 * 3 - 4
+a123*+4-=
+
+
+
+1 + 2 * 3 - 4 * 5 / 6 + 7 - 8
+123*+45*6/-7+8-
+
+stack: -
+out:   45*
+tree:  (1+(2*3))
+
+
+Read token,
+If operand:
+	push onto output
+If operator:
+	If stack is not empty && this has lower or equal precedence than operator on stack
+		pop stack, push that onto output, and repeat
+	else
+		push onto stack
+When finished pop the stack onto the out

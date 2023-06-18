@@ -176,6 +176,20 @@ Lnn_SeparatorID Lnn_GetSeparator(const char c)
 
 
 
+void Lnn_PrintExprNode(const Lnn_ExprNode* expr)
+{
+	if (!expr) return;
+	switch (expr->type)
+	{
+	case Lnn_ET_OPERATOR: printf("%s", lnn_operatorid_names[expr->u.op.id]); return;
+	case Lnn_ET_VARIABLE: printf("%s", expr->u.variable); return;
+	case Lnn_ET_NUMBERLITERAL: printf("%f", expr->u.number); return;
+	case Lnn_ET_STRINGLITERAL: printf("\"%s\"", expr->u.str); return;
+	case Lnn_ET_BOOLLITERAL: expr->u.boolean ? printf("true") : printf("false");
+	default: return;
+	}
+}
+
 void Lnn_DestroyExpression(Lnn_ExprNode* expr)
 {
 }

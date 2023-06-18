@@ -69,6 +69,8 @@ extern const char* lnn_operator_strings[Lnn_NUM_OPERATORS];
 extern const char* lnn_operatorid_names[Lnn_NUM_OPERATORS];
 extern const int lnn_operator_precedence[Lnn_NUM_OPERATORS];
 
+#define Lnn_OpPrecedence(op)	(lnn_operator_precedence[op])
+
 /**
  * @brief Checks the operator id of a string.
  * @param string String to check.
@@ -152,6 +154,8 @@ typedef struct
 		} functioncall;
 	} u;
 } Lnn_ExprNode;
+
+void Lnn_PrintExprNode(const Lnn_ExprNode* expr);
 
 /**
  * @brief Destroys an expression and all its child nodes recursively.

@@ -166,6 +166,9 @@
   <ItemGroup>
     <None Include="testcode.lnn" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="expression_parsing.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -113,6 +113,30 @@ void Utl_PushBackList(Utl_List*			list,
 					  Utl_ListLinks*	node);
 
 /**
+ * @brief Removes the element at the beginning of the list and returns a pointer to it.
+ * @param list The list to get the element from.
+ * @return A pointer to the element or NULL if the list was empty. Make sure to know
+ * the type of the element returned to cast it from the void* returned.
+ */
+void* Utl_PopFrontList(Utl_List* list);
+
+/**
+ * @brief Removes the element at the end of the list and returns a pointer to it.
+ * @param list The list to get the element from.
+ * @return A pointer to the element or NULL if the list was empty. Make sure to know
+ * the type of the element returned to cast it from the void* returned.
+ */
+void* Utl_PopBackList(Utl_List* list);
+
+/**
+ * @brief Removes a node from a list and links the surrounding elements together.
+ * @param list The list to unlink from.
+ * @param node The node to unlink from the list.
+ */
+void Utl_UnlinkFromList(Utl_List* list,
+						Utl_ListLinks* node);
+
+/**
  * @brief Removes all elements from a list and calling the destroy_func on every element.
  * This does not free the list itself, only empties it.
  * @param list Pointer to the list to empty.

@@ -42,6 +42,39 @@ void Utl_PushBackList(Utl_List* list, Utl_ListLinks* node)
 	list->count++;
 }
 
+void* Utl_PopFrontList(Utl_List* list)
+{
+	Utl_ListLinks* node = list->begin;
+	Utl_UnlinkFromList(list, node);
+	return node;
+}
+
+void* Utl_PopBackList(Utl_List* list)
+{
+	Utl_ListLinks* node = list->end;
+	Utl_UnlinkFromList(list, node);
+	return node;
+}
+
+void Utl_UnlinkFromList(Utl_List* list,
+						Utl_ListLinks* node)
+{
+	if (node->prev)
+		node->prev->next = node->next;
+	else
+		list->begin = node->next;
+
+	if (node->next)
+		node->next->prev = node->prev;
+	else
+		list->end = node->prev;
+
+	node->prev = NULL;
+	node->next = NULL;
+
+	list->count--;
+}
+
 void Utl_ClearList(Utl_List* list, void(*destroy_func)(void*))
 {
 	if (!list) return;

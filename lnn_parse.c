@@ -25,22 +25,24 @@ static Lnn_ExprNode* parse_expression_separator(Lnn_State* state,
 	Utl_Assert(begin->type == Lnn_TT_SEPARATOR);
 
 	Lnn_ExprNode* node = NULL;
-	Lnn_Token* endtoken = NULL;
+	Lnn_Token* endtoken = begin->links.next;
+
+	if (!begin->links.next) goto on_fail;
 
 	if (begin->separatorid == Lnn_SP_LPAREN)
 	{
-		node = parse_expression(state, begin, &endtoken, Lnn_KW_FALSE);
-		if (endtoken || endtoken->separatorid != Lnn_SP_RPAREN)
+		node = parse_expression(state, begin->links.next, &endtoken, Lnn_KW_FALSE);
+		if (!endtoken || endtoken->separatorid != Lnn_SP_RPAREN)
 			{ printf("ERROR! Missing ')'\n"); goto on_fail; }
 	} else if (begin->separatorid == Lnn_SP_LBRACKET)
 	{
-		node = parse_expression(state, begin, &endtoken, Lnn_KW_FALSE);
-		if (endtoken || endtoken->separatorid != Lnn_SP_RBRACKET)
+		node = parse_expression(state, begin->links.next, &endtoken, Lnn_KW_FALSE);
+		if (!endtoken || endtoken->separatorid != Lnn_SP_RBRACKET)
 			{ printf("ERROR! Missing ']'\n"); goto on_fail; }
 	} else if (begin->separatorid == Lnn_SP_LBRACE)
 	{
-		node = parse_expression(state, begin, &endtoken, Lnn_KW_FALSE);
-		if (endtoken || endtoken->separatorid != Lnn_SP_RBRACE)
+		node = parse_expression(state, begin->links.next, &endtoken, Lnn_KW_FALSE);
+		if (!endtoken || endtoken->separatorid != Lnn_SP_RBRACE)
 			{ printf("ERROR! Missing ']'\n"); goto on_fail; }
 	} else
 	{
@@ -48,7 +50,7 @@ static Lnn_ExprNode* parse_expression_separator(Lnn_State* state,
 		printf("ERROR! Expression can't start with %s\n", lnn_separatorid_names[begin->separatorid]);
 		goto on_fail;
 	}
-	*end = endtoken;
+	*end = endtoken->links.next;
 	return node;
 
 on_fail:
@@ -59,8 +61,63 @@ on_fail:
 typedef struct
 {
 	Utl_ListLinks links;
-	const Lnn_Token* token;
-} listtoken;
+	Lnn_ExprNode* exprnode;
+} list_exprnode;
+
+static list_exprnode* parse_operator(Lnn_State* state,
+									 const Lnn_Token* token)
+{
+	Utl_Assert(state);
+	Utl_Assert(token);
+	Utl_Assert(token->type == Lnn_TT_OPERATOR);
+
+	list_exprnode* node = Utl_AllocType(list_exprnode);
+	Lnn_ExprNode* exprnode = Utl_AllocType(Lnn_ExprNode);
+	exprnode->type = Lnn_ET_OPERATOR;
+	exprnode->u.op.id = token->operatorid;
+	node->exprnode = exprnode;
+	return node;
+}
+
+static list_exprnode* parse_operand(Lnn_State* state,
+									const Lnn_Token* begin,
+									const Lnn_Token** end)
+{
+	Utl_Assert(state);
+	Utl_Assert(begin);
+	Utl_Assert(end);
+
+	*end = begin->links.next;
+	Lnn_ExprNode* exprnode = Utl_AllocType(Lnn_ExprNode);
+	switch (begin->type)
+	{
+	case Lnn_TT_IDENTIFIER:
+		exprnode->type = Lnn_ET_VARIABLE;
+		exprnode->u.variable = _strdup(begin->string);
+		break;
+
+	case Lnn_TT_NUMBERLITERAL:
+		exprnode->type = Lnn_ET_NUMBERLITERAL;
+		exprnode->u.number = Utl_StringToFloat(begin->string, NULL);
+		break;
+
+	case Lnn_TT_SEPARATOR:
+		exprnode = parse_expression_separator(state, begin, end);
+		break;
+
+	default:
+		printf("ERROR! Invalid operand type\n");
+		break;
+	}
+
+	list_exprnode* node = Utl_AllocType(list_exprnode);
+	node->exprnode = exprnode;
+	return node;
+
+on_fail:
+	Lnn_DestroyExpression(exprnode);
+	return NULL;
+}
 
 static Lnn_ExprNode* parse_expression(Lnn_State* state,
 									  const Lnn_Token* begin,
@@ -71,17 +128,69 @@ static Lnn_ExprNode* parse_expression(Lnn_State* state,
 	Utl_Assert(begin);
 	Utl_Assert(end);
 
-	Utl_List tokens_postfix = { 0 };
+	Utl_List stack = { 0 };
+	Utl_List tokens_postfix = { 0 }; /* List of list_exprnode */
 
+	Utl_Bool prev_was_operand = Utl_FALSE;
 	const Lnn_Token* i = begin;
 	while (i)
 	{
-		i = i->links.next;
+		if (i->type == Lnn_TT_OPERATOR)
+		{
+			list_exprnode* node = parse_operator(state, i);
+			if (!node) goto on_fail;
+			
+		repeat:
+			if (stack.count > 0 &&
+				Lnn_OpPrecedence(node->exprnode->u.op.id) <= Lnn_OpPrecedence(((list_exprnode*)stack.end)->exprnode->u.op.id))
+			{
+				/* If stack is not empty and the current operator has less or equal precedence to that on the stack */
+				list_exprnode* stacktop = (list_exprnode*)Utl_PopBackList(&stack);
+				Utl_PushBackList(&tokens_postfix, stacktop);
+				goto repeat;
+			}
+
+			Utl_PushBackList(&stack, node);
+			i = i->links.next;
+			prev_was_operand = Utl_FALSE;
+		} else
+		{
+			if (prev_was_operand) goto expr_end;
+
+			/* Consider token operand*/
+			list_exprnode* node = parse_operand(state, i, &i);
+			if (!node) goto on_fail;
+			Utl_PushBackList(&tokens_postfix, node);
+
+			if (readendline && i && i->lastonline) goto expr_end;
+			prev_was_operand = Utl_TRUE;
+		}
+	}
+expr_end:
+	*end = i;
+	/* Expression reading finished */
+
+	/* Move everything on the stack onto the postfix output */
+	while (stack.count > 0)
+	{
+		list_exprnode* stacktop = (list_exprnode*)Utl_PopBackList(&stack);
+		Utl_PushBackList(&tokens_postfix, stacktop);
 	}
 
+	list_exprnode* iter = tokens_postfix.begin;
+	while (iter)
+	{
+		Lnn_PrintExprNode(iter->exprnode); putchar(' ');
+		iter = iter->links.next;
+	}
+	putchar('\n');
+
 	Lnn_ExprNode* node = Utl_AllocType(Lnn_ExprNode);
-	*end = begin->links.next;
 	return node;
+
+on_fail:
+
+	return NULL;
 }
 
 
